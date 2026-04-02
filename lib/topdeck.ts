@@ -50,26 +50,17 @@ export async function fetchTopDeckTournaments(
   const last = timePeriodToDays(timePeriod);
   const map = new Map<string, TopDeckTournament>();
 
-  // Fetch without format filter to match all cEDH tournaments regardless of
-  // how they're tagged on TopDeck (some may be "Commander", "EDH", "cEDH", etc.)
-  const formatVariants = [
-    { game: "Magic: The Gathering", format: "EDH", last },
-    { game: "Magic: The Gathering", format: "Commander", last },
-    { game: "Magic: The Gathering", format: "cEDH", last },
-  ];
+  // Fetch all Magic tournaments without a format filter — we only need location
+  // data to enrich edhtop16 results, and cEDH events may be tagged inconsistently.
+  const tournaments = await fetchPage(apiKey, {
+    game: "Magic: The Gathering",
+    last,
+  });
 
-  const results = await Promise.all(
-    formatVariants.map((body) => fetchPage(apiKey, body))
-  );
-
-  for (const tournaments of results) {
-    for (const t of tournaments) {
-      if (t.TID && !map.has(t.TID)) {
-        map.set(t.TID, t);
-      }
-    }
+  for (const t of tournaments) {
+    if (t.TID) map.set(t.TID, t);
   }
 
-  console.log(`TopDeck: fetched ${map.size} unique tournaments`);
+  console.log(`TopDeck: fetched ${map.size} tournaments`);
   return map;
 }

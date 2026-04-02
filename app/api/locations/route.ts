@@ -4,6 +4,7 @@ import { getRegion, deriveCountry, normalizeState, STATE_LABELS } from "@/lib/re
 import type { LocationsResponse } from "@/lib/types";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
