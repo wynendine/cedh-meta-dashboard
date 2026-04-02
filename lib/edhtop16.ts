@@ -3,12 +3,12 @@ import type { EdhtopTournament } from "./types";
 const ENDPOINT = "https://edhtop16.com/api/graphql";
 
 const TOURNAMENT_QUERY = `
-  query GetTournaments($first: Int!, $after: String, $minDate: String, $maxDate: String, $minSize: Int) {
+  query GetTournaments($first: Int!, $after: String, $timePeriod: TimePeriod!, $minSize: Int) {
     tournaments(
       first: $first
       after: $after
       sortBy: DATE
-      filters: { minDate: $minDate, maxDate: $maxDate, minSize: $minSize }
+      filters: { timePeriod: $timePeriod, minSize: $minSize }
     ) {
       edges {
         node {
@@ -31,22 +31,40 @@ const TOURNAMENT_QUERY = `
   }
 `;
 
-function timePeriodToDates(timePeriod: string): { minDate: string; maxDate: string } {
-  const now = new Date();
-  const maxDate = now.toISOString();
-  const daysMap: Record<string, number> = {
-    ONE_MONTH: 30,
-    THREE_MONTHS: 90,
-    SIX_MONTHS: 180,
-    ONE_YEAR: 365,
-    ALL_TIME: 365 * 10,
-  };
-  const days = daysMap[timePeriod] ?? 90;
-  const minDate = new Date(now.getTime() - days * 86400000).toISOString();
-  return { minDate, maxDate };
-}
+// ALL_TIME has no timePeriod enum — fall back to a very wide date range
+const ALL_TIME_QUERY = `
+  query GetTournamentsAllTime($first: Int!, $after: String, $minSize: Int) {
+    tournaments(
+      first: $first
+      after: $after
+      sortBy: DATE
+      filters: { minSize: $minSize }
+    ) {
+      edges {
+        node {
+          TID
+          name
+          size
+          topCut
+          tournamentDate
+          entries {
+            standing
+            wins
+            losses
+            draws
+            commander { name colorId }
+          }
+        }
+      }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+`;
 
-async function fetchPage(variables: Record<string, unknown>): Promise<{
+async function fetchPage(
+  query: string,
+  variables: Record<string, unknown>
+): Promise<{
   tournaments: EdhtopTournament[];
   hasNextPage: boolean;
   endCursor: string | null;
@@ -54,7 +72,7 @@ async function fetchPage(variables: Record<string, unknown>): Promise<{
   const res = await fetch(ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query: TOURNAMENT_QUERY, variables }),
+    body: JSON.stringify({ query, variables }),
     next: { revalidate: 1800 }, // 30-min cache
   });
 
@@ -74,20 +92,22 @@ export async function fetchAllTournaments(
   timePeriod: string,
   minSize = 0
 ): Promise<EdhtopTournament[]> {
-  const { minDate, maxDate } = timePeriodToDates(timePeriod);
+  const isAllTime = timePeriod === "ALL_TIME";
+  const query = isAllTime ? ALL_TIME_QUERY : TOURNAMENT_QUERY;
   const allTournaments: EdhtopTournament[] = [];
   let after: string | null = null;
   let page = 0;
   const MAX_PAGES = 10; // cap at ~2000 tournaments
 
   do {
-    const { tournaments, hasNextPage, endCursor } = await fetchPage({
+    const variables: Record<string, unknown> = {
       first: 200,
       after,
-      minDate,
-      maxDate,
       minSize: minSize > 0 ? minSize : null,
-    });
+    };
+    if (!isAllTime) variables.timePeriod = timePeriod;
+
+    const { tournaments, hasNextPage, endCursor } = await fetchPage(query, variables);
 
     allTournaments.push(...tournaments);
     after = hasNextPage ? endCursor : null;
