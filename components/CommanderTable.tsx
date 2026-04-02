@@ -69,9 +69,11 @@ export default function CommanderTable({
           <span className="text-white font-semibold">{totalEntries.toLocaleString()}</span>{" "}
           entries
         </span>
-        <span>
-          <span className="text-white font-semibold">{totalTournaments}</span> tournaments
-        </span>
+        {totalTournaments !== null && (
+          <span>
+            <span className="text-white font-semibold">{totalTournaments}</span> tournaments
+          </span>
+        )}
       </div>
 
       {/* Table */}

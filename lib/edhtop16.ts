@@ -1,118 +1,170 @@
-import type { EdhtopTournament } from "./types";
+import type { EdhtopTournament, CommanderStats } from "./types";
 
 const ENDPOINT = "https://edhtop16.com/api/graphql";
 
-const TOURNAMENT_QUERY = `
-  query GetTournaments($first: Int!, $after: String, $timePeriod: TimePeriod!, $minSize: Int) {
+async function gql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
+  const res = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables }),
+    next: { revalidate: 1800 },
+  });
+  if (!res.ok) throw new Error(`edhtop16 API error: ${res.status}`);
+  const json = await res.json();
+  if (json.errors) throw new Error(json.errors[0]?.message ?? "GraphQL error");
+  return json.data;
+}
+
+// ─── Global meta (no location filter) ────────────────────────────────────────
+// Uses edhtop16's pre-aggregated commanders query — single fast request.
+
+const COMMANDERS_QUERY = `
+  query GetCommanders($timePeriod: TimePeriod!, $minSize: Int) {
+    commanders(
+      first: 500
+      sortBy: POPULARITY
+      timePeriod: $timePeriod
+      minTournamentSize: $minSize
+    ) {
+      edges {
+        node {
+          name
+          colorId
+          stats(filters: { timePeriod: $timePeriod, minSize: $minSize }) {
+            count
+            topCuts
+            conversionRate
+            winRate
+            metaShare
+          }
+        }
+      }
+    }
+  }
+`;
+
+export async function fetchGlobalMeta(
+  timePeriod: string,
+  minSize: number
+): Promise<CommanderStats[]> {
+  type Row = { name: string; colorId: string; stats: { count: number; topCuts: number; conversionRate: number; winRate: number; metaShare: number } };
+  type Res = { commanders: { edges: { node: Row }[] } };
+
+  const data = await gql<Res>(COMMANDERS_QUERY, { timePeriod, minSize: minSize || null });
+
+  return data.commanders.edges
+    .map(({ node }): CommanderStats => ({
+      name: node.name,
+      colorId: node.colorId,
+      entries: node.stats.count,
+      topCuts: node.stats.topCuts,
+      conversionRate: node.stats.conversionRate,
+      winRate: node.stats.winRate,
+      metaShare: node.stats.metaShare,
+    }))
+    .filter((c) => c.name);
+}
+
+// ─── Location-filtered meta ───────────────────────────────────────────────────
+// Step 1: fetch all tournament TIDs (no entries — lightweight).
+// Step 2: caller filters TIDs by location.
+// Step 3: fetch entries only for matched tournaments in parallel.
+
+const TOURNAMENT_IDS_QUERY = `
+  query GetTournamentIds($first: Int!, $after: String, $timePeriod: TimePeriod!, $minSize: Int) {
     tournaments(
       first: $first
       after: $after
       sortBy: DATE
       filters: { timePeriod: $timePeriod, minSize: $minSize }
     ) {
-      edges {
-        node {
-          TID
-          name
-          size
-          topCut
-          tournamentDate
-          entries {
-            standing
-            wins
-            losses
-            draws
-            commander { name colorId }
-          }
-        }
-      }
+      edges { node { TID size topCut tournamentDate } }
       pageInfo { hasNextPage endCursor }
     }
   }
 `;
 
-// ALL_TIME has no timePeriod enum — fall back to a very wide date range
-const ALL_TIME_QUERY = `
-  query GetTournamentsAllTime($first: Int!, $after: String, $minSize: Int) {
+const ALL_TIME_IDS_QUERY = `
+  query GetTournamentIdsAllTime($first: Int!, $after: String, $minSize: Int) {
     tournaments(
       first: $first
       after: $after
       sortBy: DATE
       filters: { minSize: $minSize }
     ) {
-      edges {
-        node {
-          TID
-          name
-          size
-          topCut
-          tournamentDate
-          entries {
-            standing
-            wins
-            losses
-            draws
-            commander { name colorId }
-          }
-        }
-      }
+      edges { node { TID size topCut tournamentDate } }
       pageInfo { hasNextPage endCursor }
     }
   }
 `;
 
-async function fetchPage(
-  query: string,
-  variables: Record<string, unknown>
-): Promise<{
-  tournaments: EdhtopTournament[];
-  hasNextPage: boolean;
-  endCursor: string | null;
-}> {
-  const res = await fetch(ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, variables }),
-    next: { revalidate: 1800 }, // 30-min cache
-  });
+const TOURNAMENT_ENTRIES_QUERY = `
+  query GetTournamentEntries($TID: String!) {
+    tournament(TID: $TID) {
+      TID size topCut tournamentDate
+      entries {
+        standing wins losses draws
+        commander { name colorId }
+      }
+    }
+  }
+`;
 
-  if (!res.ok) throw new Error(`edhtop16 API error: ${res.status}`);
+type TournamentShell = { TID: string; size: number; topCut: number; tournamentDate: string };
 
-  const json = await res.json();
-  const data = json?.data?.tournaments;
+export async function fetchAllTournamentIds(
+  timePeriod: string,
+  minSize: number
+): Promise<TournamentShell[]> {
+  const isAllTime = timePeriod === "ALL_TIME";
+  const query = isAllTime ? ALL_TIME_IDS_QUERY : TOURNAMENT_IDS_QUERY;
+  const all: TournamentShell[] = [];
+  let after: string | null = null;
+  const MAX_PAGES = 15;
 
-  return {
-    tournaments: (data?.edges ?? []).map((e: { node: EdhtopTournament }) => e.node),
-    hasNextPage: data?.pageInfo?.hasNextPage ?? false,
-    endCursor: data?.pageInfo?.endCursor ?? null,
-  };
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const vars: Record<string, unknown> = { first: 200, after, minSize: minSize || null };
+    if (!isAllTime) vars.timePeriod = timePeriod;
+
+    type Res = { tournaments: { edges: { node: TournamentShell }[]; pageInfo: { hasNextPage: boolean; endCursor: string } } };
+    const data = await gql<Res>(query, vars);
+    const { edges, pageInfo } = data.tournaments;
+
+    all.push(...edges.map((e) => e.node));
+    if (!pageInfo.hasNextPage) break;
+    after = pageInfo.endCursor;
+  }
+
+  return all;
 }
 
+export async function fetchTournamentEntries(
+  shells: TournamentShell[]
+): Promise<EdhtopTournament[]> {
+  // Batch into groups of 10 parallel requests to avoid overwhelming the API
+  const BATCH = 10;
+  const results: EdhtopTournament[] = [];
+
+  for (let i = 0; i < shells.length; i += BATCH) {
+    const batch = shells.slice(i, i + BATCH);
+    const fetched = await Promise.all(
+      batch.map(async (s) => {
+        type Res = { tournament: EdhtopTournament | null };
+        const data = await gql<Res>(TOURNAMENT_ENTRIES_QUERY, { TID: s.TID });
+        return data.tournament;
+      })
+    );
+    results.push(...fetched.filter((t): t is EdhtopTournament => t !== null));
+  }
+
+  return results;
+}
+
+// Keep backwards compat for any direct callers
 export async function fetchAllTournaments(
   timePeriod: string,
   minSize = 0
 ): Promise<EdhtopTournament[]> {
-  const isAllTime = timePeriod === "ALL_TIME";
-  const query = isAllTime ? ALL_TIME_QUERY : TOURNAMENT_QUERY;
-  const allTournaments: EdhtopTournament[] = [];
-  let after: string | null = null;
-  let page = 0;
-  const MAX_PAGES = 10; // cap at ~2000 tournaments
-
-  do {
-    const variables: Record<string, unknown> = {
-      first: 200,
-      after,
-      minSize: minSize > 0 ? minSize : null,
-    };
-    if (!isAllTime) variables.timePeriod = timePeriod;
-
-    const { tournaments, hasNextPage, endCursor } = await fetchPage(query, variables);
-
-    allTournaments.push(...tournaments);
-    after = hasNextPage ? endCursor : null;
-    page++;
-  } while (after && page < MAX_PAGES);
-
-  return allTournaments;
+  const shells = await fetchAllTournamentIds(timePeriod, minSize);
+  return fetchTournamentEntries(shells);
 }

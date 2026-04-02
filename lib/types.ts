@@ -63,7 +63,7 @@ export interface CommanderStats {
 export interface MetaResponse {
   commanders: CommanderStats[];
   totalEntries: number;
-  totalTournaments: number;
+  totalTournaments: number | null;
 }
 
 export interface LocationsResponse {

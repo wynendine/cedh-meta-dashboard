@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAllTournaments } from "@/lib/edhtop16";
+import { fetchGlobalMeta, fetchAllTournamentIds, fetchTournamentEntries } from "@/lib/edhtop16";
 import { fetchTopDeckTournaments } from "@/lib/topdeck";
 import { getRegion, deriveCountry, normalizeState } from "@/lib/regions";
 import type { CommanderStats, MetaResponse } from "@/lib/types";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -14,81 +15,75 @@ export async function GET(req: NextRequest) {
   const state = searchParams.get("state") ?? "";
   const city = searchParams.get("city") ?? "";
   const venue = searchParams.get("venue") ?? "";
-  const minSize = parseInt(searchParams.get("minSize") ?? "0", 10);
+  const minSize = parseInt(searchParams.get("minSize") ?? "60", 10);
 
-  const [edhtopTournaments, topDeckMap] = await Promise.all([
-    fetchAllTournaments(timePeriod, minSize),
+  const hasLocationFilter = country || region || state || city || venue;
+
+  // ── Fast path: no location filter ──────────────────────────────────────────
+  // edhtop16 already aggregates commander stats server-side.
+  if (!hasLocationFilter) {
+    const commanders = await fetchGlobalMeta(timePeriod, minSize);
+    const totalEntries = commanders.reduce((s, c) => s + c.entries, 0);
+
+    return NextResponse.json(
+      { commanders, totalEntries, totalTournaments: null } satisfies MetaResponse,
+      { headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600" } }
+    );
+  }
+
+  // ── Slow path: location filter ─────────────────────────────────────────────
+  // 1. Fetch all tournament IDs (lightweight — no entries).
+  // 2. Fetch TopDeck location map in parallel.
+  // 3. Filter tournament IDs by location.
+  // 4. Fetch entries only for matched tournaments.
+  const [shells, topDeckMap] = await Promise.all([
+    fetchAllTournamentIds(timePeriod, minSize),
     fetchTopDeckTournaments(timePeriod),
   ]);
 
-  // Enrich edhtop16 tournaments with TopDeck location data
-  const enriched = edhtopTournaments.map((t) => {
-    const td = topDeckMap.get(t.TID);
-    const rawState = normalizeState(td?.eventData?.state);
-    return {
-      ...t,
-      country: deriveCountry(td?.eventData?.country, rawState),
-      region: getRegion(rawState),
-      state: rawState,
-      city: td?.eventData?.city,
-      venue: td?.eventData?.location,
-    };
-  });
+  // Filter shells by location using TopDeck data
+  const filteredShells = shells.filter((s) => {
+    const td = topDeckMap.get(s.TID);
+    if (!td?.eventData) return false;
 
-  // Apply location filters
-  const filtered = enriched.filter((t) => {
-    if (country && t.country !== country) return false;
-    if (region && t.region !== region) return false;
-    if (state && t.state !== state.toUpperCase()) return false;
-    if (city && t.city?.toLowerCase() !== city.toLowerCase()) return false;
-    if (venue && t.venue?.toLowerCase() !== venue.toLowerCase()) return false;
+    const rawState = normalizeState(td.eventData.state);
+    const tCountry = deriveCountry(td.eventData.country, rawState);
+    const tRegion = getRegion(rawState);
+    const tCity = td.eventData.city;
+    const tVenue = td.eventData.location;
+
+    if (country && tCountry !== country) return false;
+    if (region && tRegion !== region) return false;
+    if (state && rawState !== state.toUpperCase()) return false;
+    if (city && tCity?.toLowerCase() !== city.toLowerCase()) return false;
+    if (venue && tVenue?.toLowerCase() !== venue.toLowerCase()) return false;
     return true;
   });
 
-  const hasLocationFilter = country || region || state || city || venue;
-  const source = hasLocationFilter ? filtered : enriched;
+  // Fetch full entries only for matched tournaments
+  const tournaments = await fetchTournamentEntries(filteredShells);
 
   // Aggregate commander stats
-  const statsMap = new Map<
-    string,
-    {
-      colorId: string;
-      entries: number;
-      topCuts: number;
-      totalWins: number;
-      totalLosses: number;
-      totalDraws: number;
-    }
-  >();
-
+  const statsMap = new Map<string, {
+    colorId: string; entries: number; topCuts: number;
+    totalWins: number; totalLosses: number; totalDraws: number;
+  }>();
   let totalEntries = 0;
 
-  for (const t of source) {
+  for (const t of tournaments) {
     for (const entry of t.entries) {
       if (!entry.commander?.name) continue;
-
       const key = entry.commander.name;
-      const existing = statsMap.get(key);
       const isTopCut = entry.standing <= (t.topCut ?? 16);
       const games = entry.wins + entry.losses + entry.draws;
+      const existing = statsMap.get(key);
 
       if (existing) {
-        existing.entries += 1;
-        if (isTopCut) existing.topCuts += 1;
-        if (games > 0) {
-          existing.totalWins += entry.wins;
-          existing.totalLosses += entry.losses;
-          existing.totalDraws += entry.draws;
-        }
+        existing.entries++;
+        if (isTopCut) existing.topCuts++;
+        if (games > 0) { existing.totalWins += entry.wins; existing.totalLosses += entry.losses; existing.totalDraws += entry.draws; }
       } else {
-        statsMap.set(key, {
-          colorId: entry.commander.colorId,
-          entries: 1,
-          topCuts: isTopCut ? 1 : 0,
-          totalWins: games > 0 ? entry.wins : 0,
-          totalLosses: games > 0 ? entry.losses : 0,
-          totalDraws: games > 0 ? entry.draws : 0,
-        });
+        statsMap.set(key, { colorId: entry.commander.colorId, entries: 1, topCuts: isTopCut ? 1 : 0, totalWins: games > 0 ? entry.wins : 0, totalLosses: games > 0 ? entry.losses : 0, totalDraws: games > 0 ? entry.draws : 0 });
       }
       totalEntries++;
     }
@@ -98,10 +93,7 @@ export async function GET(req: NextRequest) {
     .map(([name, s]): CommanderStats => {
       const totalGames = s.totalWins + s.totalLosses + s.totalDraws;
       return {
-        name,
-        colorId: s.colorId,
-        entries: s.entries,
-        topCuts: s.topCuts,
+        name, colorId: s.colorId, entries: s.entries, topCuts: s.topCuts,
         conversionRate: s.entries > 0 ? (s.topCuts / s.entries) * 100 : 0,
         winRate: totalGames > 0 ? (s.totalWins / totalGames) * 100 : 0,
         metaShare: totalEntries > 0 ? (s.entries / totalEntries) * 100 : 0,
@@ -109,11 +101,7 @@ export async function GET(req: NextRequest) {
     })
     .sort((a, b) => b.entries - a.entries);
 
-  const response: MetaResponse = {
-    commanders,
-    totalEntries,
-    totalTournaments: source.length,
-  };
+  const response: MetaResponse = { commanders, totalEntries, totalTournaments: tournaments.length };
 
   return NextResponse.json(response, {
     headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600" },
