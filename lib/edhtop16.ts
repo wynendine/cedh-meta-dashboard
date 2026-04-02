@@ -30,7 +30,7 @@ const COMMANDERS_QUERY = `
         node {
           name
           colorId
-          stats(filters: { timePeriod: $timePeriod, minSize: $minSize }) {
+          stats(filters: { timePeriod: $timePeriod }) {
             count
             topCuts
             conversionRate
@@ -58,9 +58,9 @@ export async function fetchGlobalMeta(
       colorId: node.colorId,
       entries: node.stats.count,
       topCuts: node.stats.topCuts,
-      conversionRate: node.stats.conversionRate,
-      winRate: node.stats.winRate,
-      metaShare: node.stats.metaShare,
+      conversionRate: node.stats.conversionRate * 100,
+      winRate: node.stats.winRate * 100,
+      metaShare: node.stats.metaShare * 100,
     }))
     .filter((c) => c.name);
 }
