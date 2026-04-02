@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllTournaments } from "@/lib/edhtop16";
 import { fetchTopDeckTournaments } from "@/lib/topdeck";
-import { getRegion } from "@/lib/regions";
-import type { CommanderStats, EdhtopEntry, MetaResponse } from "@/lib/types";
+import { getRegion, deriveCountry } from "@/lib/regions";
+import type { CommanderStats, MetaResponse } from "@/lib/types";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const timePeriod = searchParams.get("timePeriod") ?? "THREE_MONTHS";
+  const country = searchParams.get("country") ?? "";
   const region = searchParams.get("region") ?? "";
   const state = searchParams.get("state") ?? "";
   const city = searchParams.get("city") ?? "";
@@ -26,15 +27,17 @@ export async function GET(req: NextRequest) {
     const rawState = td?.eventData?.state?.toUpperCase();
     return {
       ...t,
-      city: td?.eventData?.city,
-      state: rawState,
-      venue: td?.eventData?.location,
+      country: deriveCountry(td?.eventData?.country, rawState),
       region: getRegion(rawState),
+      state: rawState,
+      city: td?.eventData?.city,
+      venue: td?.eventData?.location,
     };
   });
 
   // Apply location filters
   const filtered = enriched.filter((t) => {
+    if (country && t.country !== country) return false;
     if (region && t.region !== region) return false;
     if (state && t.state !== state.toUpperCase()) return false;
     if (city && t.city?.toLowerCase() !== city.toLowerCase()) return false;
@@ -42,9 +45,8 @@ export async function GET(req: NextRequest) {
     return true;
   });
 
-  // When location filters are active but no TopDeck data is available,
-  // fall through with all tournaments (TopDeck key not configured)
-  const source = region || state || city || venue ? filtered : enriched;
+  const hasLocationFilter = country || region || state || city || venue;
+  const source = hasLocationFilter ? filtered : enriched;
 
   // Aggregate commander stats
   const statsMap = new Map<

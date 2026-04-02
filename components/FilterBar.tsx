@@ -26,56 +26,65 @@ interface FilterBarProps {
   loading: boolean;
 }
 
+function Select({
+  value,
+  onChange,
+  options,
+  disabled,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  disabled?: boolean;
+  placeholder: string;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      className="bg-[#1a1d27] border border-[#2a2d3a] text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed min-w-[140px]"
+    >
+      <option value="">{placeholder}</option>
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export default function FilterBar({ filters, locations, onChange, loading }: FilterBarProps) {
-  const filteredStates = locations?.states.filter(
-    (s) => !filters.region || s.region === filters.region
-  ) ?? [];
+  const hasLocationData = locations && locations.countries.length > 0;
+  const isUS = filters.country === "United States";
 
-  const filteredCities = locations?.cities.filter(
-    (c) => !filters.state || c.state === filters.state
-  ) ?? [];
+  // Cascade filtering
+  const filteredStates = locations?.states.filter((s) => {
+    if (filters.country && s.country !== filters.country) return false;
+    if (isUS && filters.region && s.region !== filters.region) return false;
+    return true;
+  }) ?? [];
 
-  const filteredVenues = locations?.venues.filter(
-    (v) =>
-      (!filters.state || v.state === filters.state) &&
-      (!filters.city || v.city === filters.city)
-  ) ?? [];
+  const filteredCities = locations?.cities.filter((c) => {
+    if (filters.country && c.country !== filters.country) return false;
+    if (filters.state && c.state !== filters.state) return false;
+    return true;
+  }) ?? [];
 
-  const hasLocationData = locations && locations.states.length > 0;
+  const filteredVenues = locations?.venues.filter((v) => {
+    if (filters.country && v.country !== filters.country) return false;
+    if (filters.state && v.state !== filters.state) return false;
+    if (filters.city && v.city !== filters.city) return false;
+    return true;
+  }) ?? [];
 
-  function Select({
-    value,
-    onChange: onSelectChange,
-    options,
-    disabled,
-    placeholder,
-  }: {
-    value: string;
-    onChange: (v: string) => void;
-    options: { value: string; label: string }[];
-    disabled?: boolean;
-    placeholder: string;
-  }) {
-    return (
-      <select
-        value={value}
-        onChange={(e) => onSelectChange(e.target.value)}
-        disabled={disabled}
-        className="bg-[#1a1d27] border border-[#2a2d3a] text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed min-w-[130px]"
-      >
-        <option value="">{placeholder}</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    );
-  }
+  const hasActiveLocation = filters.country || filters.region || filters.state || filters.city || filters.venue;
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      {/* Time Period — pill buttons */}
+      {/* Time Period pills */}
       <div className="flex items-center gap-1 bg-[#1a1d27] rounded-md p-1 border border-[#2a2d3a]">
         {TIME_PERIODS.map((tp) => (
           <button
@@ -110,20 +119,30 @@ export default function FilterBar({ filters, locations, onChange, loading }: Fil
         <>
           <div className="w-px h-6 bg-[#2a2d3a]" />
 
-          {/* Region */}
+          {/* Country */}
           <Select
-            value={filters.region}
-            onChange={(v) => onChange({ region: v, state: "", city: "", venue: "" })}
-            options={REGIONS.map((r) => ({ value: r, label: r }))}
-            placeholder="All Regions"
+            value={filters.country}
+            onChange={(v) => onChange({ country: v, region: "", state: "", city: "", venue: "" })}
+            options={locations.countries.map((c) => ({ value: c, label: c }))}
+            placeholder="All Countries"
           />
 
-          {/* State */}
+          {/* Region — only for US */}
+          {isUS && (
+            <Select
+              value={filters.region}
+              onChange={(v) => onChange({ region: v, state: "", city: "", venue: "" })}
+              options={REGIONS.map((r) => ({ value: r, label: r }))}
+              placeholder="All Regions"
+            />
+          )}
+
+          {/* State / Province */}
           <Select
             value={filters.state}
             onChange={(v) => onChange({ state: v, city: "", venue: "" })}
             options={filteredStates.map((s) => ({ value: s.value, label: s.label }))}
-            placeholder="All States"
+            placeholder={isUS ? "All States" : "All Provinces"}
             disabled={filteredStates.length === 0}
           />
 
@@ -145,11 +164,9 @@ export default function FilterBar({ filters, locations, onChange, loading }: Fil
             disabled={filteredVenues.length === 0}
           />
 
-          {(filters.region || filters.state || filters.city || filters.venue) && (
+          {hasActiveLocation && (
             <button
-              onClick={() =>
-                onChange({ region: "", state: "", city: "", venue: "" })
-              }
+              onClick={() => onChange({ country: "", region: "", state: "", city: "", venue: "" })}
               className="text-xs text-gray-500 hover:text-white underline"
             >
               Clear location

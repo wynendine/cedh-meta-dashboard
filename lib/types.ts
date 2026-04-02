@@ -22,6 +22,7 @@ export interface EdhtopTournament {
 export interface TopDeckEventData {
   city?: string;
   state?: string;
+  country?: string;
   lat?: number;
   lng?: number;
   location?: string; // venue name
@@ -38,10 +39,11 @@ export interface TopDeckTournament {
 // ─── Enriched tournament (joined) ────────────────────────────────────────────
 
 export interface Tournament extends EdhtopTournament {
-  city?: string;
-  state?: string;
-  venue?: string;
+  country?: string;
   region?: string;
+  state?: string;
+  city?: string;
+  venue?: string;
 }
 
 // ─── Aggregated commander stats ───────────────────────────────────────────────
@@ -65,10 +67,11 @@ export interface MetaResponse {
 }
 
 export interface LocationsResponse {
+  countries: string[];
   regions: string[];
-  states: { value: string; label: string; region: string }[];
-  cities: { value: string; label: string; state: string }[];
-  venues: { value: string; label: string; city: string; state: string }[];
+  states: { value: string; label: string; region: string; country: string }[];
+  cities: { value: string; label: string; state: string; country: string }[];
+  venues: { value: string; label: string; city: string; state: string; country: string }[];
 }
 
 // ─── Filter state ─────────────────────────────────────────────────────────────
@@ -82,6 +85,7 @@ export type TimePeriod =
 
 export interface Filters {
   timePeriod: TimePeriod;
+  country: string;
   region: string;
   state: string;
   city: string;

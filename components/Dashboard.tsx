@@ -7,6 +7,7 @@ import type { Filters, MetaResponse, LocationsResponse } from "@/lib/types";
 
 const DEFAULT_FILTERS: Filters = {
   timePeriod: "THREE_MONTHS",
+  country: "",
   region: "",
   state: "",
   city: "",
@@ -17,6 +18,7 @@ const DEFAULT_FILTERS: Filters = {
 function buildQuery(filters: Filters): string {
   const params = new URLSearchParams();
   params.set("timePeriod", filters.timePeriod);
+  if (filters.country) params.set("country", filters.country);
   if (filters.region) params.set("region", filters.region);
   if (filters.state) params.set("state", filters.state);
   if (filters.city) params.set("city", filters.city);
@@ -68,7 +70,7 @@ export default function Dashboard() {
   }
 
   // Location breadcrumb
-  const locationParts = [filters.region, filters.state, filters.city, filters.venue].filter(Boolean);
+  const locationParts = [filters.country, filters.region, filters.state, filters.city, filters.venue].filter(Boolean);
   const locationLabel = locationParts.length > 0 ? locationParts.join(" › ") : "Global";
 
   return (

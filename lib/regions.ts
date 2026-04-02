@@ -29,9 +29,35 @@ export const STATE_LABELS: Record<string, string> = {
   WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
 };
 
-export const REGIONS = ["Northeast", "Midwest", "South", "West", "International"] as const;
+export const REGIONS = ["Northeast", "Midwest", "South", "West"] as const;
 
-export function getRegion(state?: string): string {
-  if (!state) return "International";
-  return STATE_TO_REGION[state.toUpperCase()] ?? "International";
+export const US_STATE_CODES = new Set(Object.keys(STATE_TO_REGION));
+
+export function getRegion(state?: string): string | undefined {
+  if (!state) return undefined;
+  return STATE_TO_REGION[state.toUpperCase()];
+}
+
+/**
+ * Derive a country label from TopDeck eventData.
+ * TopDeck may return a country field directly; if not, we infer from state.
+ */
+export function deriveCountry(country?: string, state?: string): string {
+  if (country) return normalizeCountry(country);
+  if (state && US_STATE_CODES.has(state.toUpperCase())) return "United States";
+  return "International";
+}
+
+const COUNTRY_ALIASES: Record<string, string> = {
+  US: "United States",
+  USA: "United States",
+  "UNITED STATES OF AMERICA": "United States",
+  UK: "United Kingdom",
+  "GREAT BRITAIN": "United Kingdom",
+  GB: "United Kingdom",
+  // Add more as needed
+};
+
+function normalizeCountry(raw: string): string {
+  return COUNTRY_ALIASES[raw.toUpperCase()] ?? raw;
 }
