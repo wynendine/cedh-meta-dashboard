@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchTopDeckTournaments } from "@/lib/topdeck";
-import { getRegion, deriveCountry, STATE_LABELS } from "@/lib/regions";
+import { getRegion, deriveCountry, normalizeState, STATE_LABELS } from "@/lib/regions";
 import type { LocationsResponse } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     const ed = t.eventData;
     if (!ed) continue;
 
-    const rawState = ed.state?.toUpperCase();
+    const rawState = normalizeState(ed.state);
     const country = deriveCountry(ed.country, rawState);
     countrySet.add(country);
 

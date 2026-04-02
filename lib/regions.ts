@@ -33,6 +33,25 @@ export const REGIONS = ["Northeast", "Midwest", "South", "West"] as const;
 
 export const US_STATE_CODES = new Set(Object.keys(STATE_TO_REGION));
 
+// Reverse lookup: full state name (uppercase) → 2-letter code
+// Handles TopDeck returning "Ohio" instead of "OH"
+const STATE_NAME_TO_CODE: Record<string, string> = Object.fromEntries(
+  Object.entries(STATE_LABELS).map(([code, name]) => [name.toUpperCase(), code])
+);
+
+/**
+ * Normalize a state value from TopDeck to a 2-letter uppercase code.
+ * Handles "OH", "oh", "Ohio", "OHIO" → "OH"
+ */
+export function normalizeState(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  const upper = raw.trim().toUpperCase();
+  // Already a 2-letter code
+  if (US_STATE_CODES.has(upper)) return upper;
+  // Full name like "Ohio" → "OH"
+  return STATE_NAME_TO_CODE[upper];
+}
+
 export function getRegion(state?: string): string | undefined {
   if (!state) return undefined;
   return STATE_TO_REGION[state.toUpperCase()];

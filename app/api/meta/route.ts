@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllTournaments } from "@/lib/edhtop16";
 import { fetchTopDeckTournaments } from "@/lib/topdeck";
-import { getRegion, deriveCountry } from "@/lib/regions";
+import { getRegion, deriveCountry, normalizeState } from "@/lib/regions";
 import type { CommanderStats, MetaResponse } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   // Enrich edhtop16 tournaments with TopDeck location data
   const enriched = edhtopTournaments.map((t) => {
     const td = topDeckMap.get(t.TID);
-    const rawState = td?.eventData?.state?.toUpperCase();
+    const rawState = normalizeState(td?.eventData?.state);
     return {
       ...t,
       country: deriveCountry(td?.eventData?.country, rawState),
