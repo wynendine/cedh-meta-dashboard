@@ -12,7 +12,7 @@ const DEFAULT_FILTERS: Filters = {
   state: "",
   city: "",
   venue: "",
-  minSize: 0,
+  minSize: 60,
 };
 
 function buildQuery(filters: Filters): string {

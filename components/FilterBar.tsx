@@ -12,11 +12,10 @@ const TIME_PERIODS: { value: TimePeriod; label: string }[] = [
 ];
 
 const MIN_SIZES = [
-  { value: 0, label: "Any Size" },
-  { value: 16, label: "16+" },
-  { value: 32, label: "32+" },
-  { value: 64, label: "64+" },
-  { value: 100, label: "100+" },
+  { value: 32, label: "32+ players" },
+  { value: 60, label: "60+ players" },
+  { value: 100, label: "100+ players" },
+  { value: 150, label: "150+ players" },
 ];
 
 interface FilterBarProps {
@@ -108,7 +107,7 @@ export default function FilterBar({ filters, locations, onChange, loading }: Fil
         value={String(filters.minSize)}
         onChange={(v) => onChange({ minSize: parseInt(v, 10) })}
         options={MIN_SIZES.map((m) => ({ value: String(m.value), label: m.label }))}
-        placeholder="Any Size"
+        placeholder="Min Size"
       />
 
       {!hasLocationData ? (
