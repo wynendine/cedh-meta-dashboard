@@ -13,6 +13,30 @@ function timePeriodToDays(timePeriod: string): number {
   return map[timePeriod] ?? 90;
 }
 
+async function fetchPage(
+  apiKey: string,
+  body: Record<string, unknown>
+): Promise<TopDeckTournament[]> {
+  const res = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    next: { revalidate: 1800 },
+  });
+
+  if (!res.ok) {
+    console.error(`TopDeck API error: ${res.status} ${await res.text()}`);
+    return [];
+  }
+
+  const data = await res.json();
+  // TopDeck may return { data: [...] } or a plain array
+  return Array.isArray(data) ? data : (data?.data ?? []);
+}
+
 export async function fetchTopDeckTournaments(
   timePeriod: string
 ): Promise<Map<string, TopDeckTournament>> {
@@ -24,38 +48,28 @@ export async function fetchTopDeckTournaments(
   }
 
   const last = timePeriodToDays(timePeriod);
+  const map = new Map<string, TopDeckTournament>();
 
-  try {
-    const res = await fetch(ENDPOINT, {
-      method: "POST",
-      headers: {
-        Authorization: apiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        game: "Magic: The Gathering",
-        format: "EDH",
-        last,
-        columns: ["eventData", "players", "TID"],
-      }),
-      next: { revalidate: 1800 },
-    });
+  // Fetch without format filter to match all cEDH tournaments regardless of
+  // how they're tagged on TopDeck (some may be "Commander", "EDH", "cEDH", etc.)
+  const formatVariants = [
+    { game: "Magic: The Gathering", format: "EDH", last },
+    { game: "Magic: The Gathering", format: "Commander", last },
+    { game: "Magic: The Gathering", format: "cEDH", last },
+  ];
 
-    if (!res.ok) {
-      console.error(`TopDeck API error: ${res.status}`);
-      return new Map();
+  const results = await Promise.all(
+    formatVariants.map((body) => fetchPage(apiKey, body))
+  );
+
+  for (const tournaments of results) {
+    for (const t of tournaments) {
+      if (t.TID && !map.has(t.TID)) {
+        map.set(t.TID, t);
+      }
     }
-
-    const data: TopDeckTournament[] = await res.json();
-    const map = new Map<string, TopDeckTournament>();
-
-    for (const t of data) {
-      if (t.TID) map.set(t.TID, t);
-    }
-
-    return map;
-  } catch (err) {
-    console.error("TopDeck fetch failed:", err);
-    return new Map();
   }
+
+  console.log(`TopDeck: fetched ${map.size} unique tournaments`);
+  return map;
 }
