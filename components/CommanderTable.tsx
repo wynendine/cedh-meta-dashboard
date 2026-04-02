@@ -12,7 +12,7 @@ type SortKey = keyof Pick<
 interface CommanderTableProps {
   commanders: CommanderStats[];
   totalEntries: number;
-  totalTournaments: number;
+  totalTournaments: number | null;
 }
 
 export default function CommanderTable({
