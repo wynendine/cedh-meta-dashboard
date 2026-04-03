@@ -89,39 +89,28 @@ export default function Dashboard() {
     <div className="min-h-screen bg-[#0f1117] text-white">
       {/* Header */}
       <header className="border-b border-[#2a2d3a] bg-[#0f1117]/80 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-[1400px] mx-auto px-4 lg:px-6 py-3 lg:py-4 flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold tracking-tight">cEDH Meta Dashboard</h1>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <h1 className="text-lg lg:text-xl font-bold tracking-tight">cEDH Meta Dashboard</h1>
+            <p className="hidden lg:block text-xs text-gray-500 mt-0.5">
               Powered by{" "}
-              <a
-                href="https://edhtop16.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-gray-300 underline"
-              >
+              <a href="https://edhtop16.com" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 underline">
                 edhtop16.com
               </a>{" "}
               &amp;{" "}
-              <a
-                href="https://topdeck.gg"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-gray-300 underline"
-              >
+              <a href="https://topdeck.gg" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 underline">
                 TopDeck.gg
               </a>
             </p>
           </div>
-          <div className="text-sm text-gray-400">
-            Viewing:{" "}
+          <div className="text-xs lg:text-sm text-gray-400 text-right shrink-0">
             <span className="text-white font-medium">{locationLabel}</span>
           </div>
         </div>
       </header>
 
       {/* Filters */}
-      <div className="max-w-[1400px] mx-auto px-6 py-4 border-b border-[#2a2d3a]">
+      <div className="max-w-[1400px] mx-auto px-4 lg:px-6 py-3 lg:py-4 border-b border-[#2a2d3a]">
         <FilterBar
           filters={filters}
           locations={locations}
@@ -132,7 +121,7 @@ export default function Dashboard() {
       </div>
 
       {/* Content */}
-      <main className="max-w-[1400px] mx-auto px-6 py-6">
+      <main className="max-w-[1400px] mx-auto px-4 lg:px-6 py-4 lg:py-6">
         {error ? (
           <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-400 text-sm">
             Error: {error}
