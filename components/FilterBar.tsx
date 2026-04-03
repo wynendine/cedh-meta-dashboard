@@ -21,6 +21,7 @@ const MIN_SIZES = [
 interface FilterBarProps {
   filters: Filters;
   locations: LocationsResponse | null;
+  locationsLoading: boolean;
   onChange: (updated: Partial<Filters>) => void;
   loading: boolean;
 }
@@ -55,7 +56,7 @@ function Select({
   );
 }
 
-export default function FilterBar({ filters, locations, onChange, loading }: FilterBarProps) {
+export default function FilterBar({ filters, locations, locationsLoading, onChange, loading }: FilterBarProps) {
   const hasLocationData = locations && locations.countries.length > 0;
   const isUS = filters.country === "United States";
 
@@ -111,8 +112,8 @@ export default function FilterBar({ filters, locations, onChange, loading }: Fil
       />
 
       {!hasLocationData ? (
-        <span className="text-xs text-yellow-500/70 italic">
-          Location filters require a TopDeck API key
+        <span className="text-xs text-gray-500 italic">
+          {locationsLoading ? "Loading location filters…" : "No location data available"}
         </span>
       ) : (
         <>

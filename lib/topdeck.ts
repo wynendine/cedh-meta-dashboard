@@ -13,28 +13,31 @@ function timePeriodToDays(timePeriod: string): number {
   return map[timePeriod] ?? 90;
 }
 
-async function fetchPage(
+async function fetchFormat(
   apiKey: string,
-  body: Record<string, unknown>
+  format: string,
+  last: number
 ): Promise<TopDeckTournament[]> {
-  const res = await fetch(ENDPOINT, {
-    method: "POST",
-    headers: {
-      Authorization: apiKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-    next: { revalidate: 1800 },
-  });
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000); // 8s per request
 
-  if (!res.ok) {
-    console.error(`TopDeck API error: ${res.status} ${await res.text()}`);
+    const res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: { Authorization: apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ game: "Magic: The Gathering", format, last }),
+      next: { revalidate: 3600 },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    return Array.isArray(data) ? data : (data?.data ?? []);
+  } catch {
     return [];
   }
-
-  const data = await res.json();
-  // TopDeck may return { data: [...] } or a plain array
-  return Array.isArray(data) ? data : (data?.data ?? []);
 }
 
 export async function fetchTopDeckTournaments(
@@ -50,16 +53,11 @@ export async function fetchTopDeckTournaments(
   const last = timePeriodToDays(timePeriod);
   const map = new Map<string, TopDeckTournament>();
 
-  // TopDeck requires both game and format. Fetch all known Commander format names
-  // in parallel since cEDH events are tagged inconsistently across organizers.
+  // Run sequentially so a slow response on one format doesn't block all others
+  // and we stay well under Vercel's function timeout
   const formats = ["EDH", "Commander", "cEDH", "cEDH / EDH"];
-  const results = await Promise.all(
-    formats.map((format) =>
-      fetchPage(apiKey, { game: "Magic: The Gathering", format, last })
-    )
-  );
-
-  for (const tournaments of results) {
+  for (const format of formats) {
+    const tournaments = await fetchFormat(apiKey, format, last);
     for (const t of tournaments) {
       if (t.TID && !map.has(t.TID)) map.set(t.TID, t);
     }

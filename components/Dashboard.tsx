@@ -31,6 +31,7 @@ export default function Dashboard() {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [meta, setMeta] = useState<MetaResponse | null>(null);
   const [locations, setLocations] = useState<LocationsResponse | null>(null);
+  const [locationsLoading, setLocationsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,12 +50,25 @@ export default function Dashboard() {
   }, []);
 
   const fetchLocations = useCallback(async (timePeriod: string) => {
-    try {
-      const res = await fetch(`/api/locations?timePeriod=${timePeriod}`);
-      if (res.ok) setLocations(await res.json());
-    } catch {
-      // Locations are optional — location filters just won't appear
+    setLocationsLoading(true);
+    // Retry up to 3 times — locations can time out on cold start
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(`/api/locations?timePeriod=${timePeriod}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.countries?.length > 0) {
+            setLocations(data);
+            setLocationsLoading(false);
+            return;
+          }
+        }
+      } catch {
+        // continue to retry
+      }
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 3000));
     }
+    setLocationsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -113,6 +127,7 @@ export default function Dashboard() {
         <FilterBar
           filters={filters}
           locations={locations}
+          locationsLoading={locationsLoading}
           onChange={handleFilterChange}
           loading={loading}
         />
