@@ -19,7 +19,7 @@ async function gql<T>(query: string, variables: Record<string, unknown>): Promis
 // Uses edhtop16's pre-aggregated commanders query — single fast request.
 
 const COMMANDERS_QUERY = `
-  query GetCommanders($timePeriod: TimePeriod!, $minSize: Int) {
+  query GetCommanders($timePeriod: TimePeriod!, $minSize: Int, $minEventSize: Int!) {
     commanders(
       first: 500
       sortBy: POPULARITY
@@ -37,6 +37,14 @@ const COMMANDERS_QUERY = `
             winRate
             metaShare
           }
+          wins: entries(
+            first: 500
+            sortBy: NEW
+            filters: { timePeriod: $timePeriod, minEventSize: $minEventSize, maxStanding: 1 }
+          ) {
+            edges { node { __typename } }
+            pageInfo { hasNextPage }
+          }
         }
       }
     }
@@ -47,10 +55,19 @@ export async function fetchGlobalMeta(
   timePeriod: string,
   minSize: number
 ): Promise<CommanderStats[]> {
-  type Row = { name: string; colorId: string; stats: { count: number; topCuts: number; conversionRate: number; winRate: number; metaShare: number } };
+  type Row = {
+    name: string;
+    colorId: string;
+    stats: { count: number; topCuts: number; conversionRate: number; winRate: number; metaShare: number };
+    wins: { edges: { node: { __typename: string } }[]; pageInfo: { hasNextPage: boolean } };
+  };
   type Res = { commanders: { edges: { node: Row }[] } };
 
-  const data = await gql<Res>(COMMANDERS_QUERY, { timePeriod, minSize: minSize || null });
+  const data = await gql<Res>(COMMANDERS_QUERY, {
+    timePeriod,
+    minSize: minSize || null,
+    minEventSize: minSize || 0,
+  });
 
   return data.commanders.edges
     .map(({ node }): CommanderStats => ({
@@ -58,7 +75,7 @@ export async function fetchGlobalMeta(
       colorId: node.colorId,
       entries: node.stats.count,
       topCuts: node.stats.topCuts,
-      tournamentWins: null,
+      tournamentWins: node.wins.edges.length,
       conversionRate: node.stats.conversionRate * 100,
       winRate: node.stats.winRate > 0 ? node.stats.winRate * 100 : null,
       drawRate: null,
