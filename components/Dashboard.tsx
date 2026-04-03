@@ -47,12 +47,12 @@ export default function Dashboard() {
     }
   }, []);
 
-  const fetchLocations = useCallback(async (timePeriod: string) => {
+  const fetchLocations = useCallback(async (timePeriod: string, minSize: number) => {
     setLocationsLoading(true);
     // Retry up to 3 times — locations can time out on cold start
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const res = await fetch(`/api/locations?timePeriod=${timePeriod}`);
+        const res = await fetch(`/api/locations?timePeriod=${timePeriod}&minSize=${minSize}`);
         if (res.ok) {
           const data = await res.json();
           if (data.countries?.length > 0) {
@@ -74,8 +74,8 @@ export default function Dashboard() {
   }, [filters, fetchMeta]);
 
   useEffect(() => {
-    fetchLocations(filters.timePeriod);
-  }, [filters.timePeriod, fetchLocations]);
+    fetchLocations(filters.timePeriod, filters.minSize);
+  }, [filters.timePeriod, filters.minSize, fetchLocations]);
 
   function handleFilterChange(updated: Partial<Filters>) {
     setFilters((prev) => ({ ...prev, ...updated }));

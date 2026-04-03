@@ -25,7 +25,7 @@ async function fetchFormat(
     const res = await fetch(ENDPOINT, {
       method: "POST",
       headers: { Authorization: apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ game: "Magic: The Gathering", format, last, columns: ["eventData"] }),
+      body: JSON.stringify({ game: "Magic: The Gathering", format, last, columns: ["eventData", "players"] }),
       next: { revalidate: 3600 },
       signal: controller.signal,
     });

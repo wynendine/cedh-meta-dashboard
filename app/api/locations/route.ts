@@ -9,6 +9,7 @@ export const maxDuration = 60;
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const timePeriod = searchParams.get("timePeriod") ?? "THREE_MONTHS";
+  const minSize = parseInt(searchParams.get("minSize") ?? "0", 10);
 
   const topDeckMap = await fetchTopDeckTournaments(timePeriod);
 
@@ -17,6 +18,7 @@ export async function GET(req: NextRequest) {
   const cityMap = new Map<string, { label: string; state: string; country: string }>();
 
   for (const t of topDeckMap.values()) {
+    if (minSize > 0 && (t.players ?? 0) < minSize) continue;
     const ed = t.eventData;
     if (!ed) continue;
 
