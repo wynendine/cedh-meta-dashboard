@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchTopDeckTournaments } from "@/lib/topdeck";
 import { getRegion, deriveCountry, normalizeState, STATE_LABELS } from "@/lib/regions";
-import { extractVenueName } from "@/lib/venue";
+import { resolveVenueName } from "@/lib/venue";
 import type { LocationsResponse } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const countrySet = new Set<string>();
   const stateMap = new Map<string, { region?: string; country: string }>();
   const cityMap = new Map<string, { state: string; country: string }>();
-  const venueMap = new Map<string, { venueName: string; address: string; city: string; state: string; country: string }>();
+  const venueMap = new Map<string, { venueName: string; address: string; city: string; state: string; country: string; lat?: number; lng?: number }>();
 
   for (const t of topDeckMap.values()) {
     const ed = t.eventData;
@@ -40,14 +40,32 @@ export async function GET(req: NextRequest) {
 
     const address = ed.location?.trim();
     if (address && cityKey) {
-      const venueName = extractVenueName(address, cityKey);
-      venueMap.set(`${country}|${rawState ?? ""}|${cityKey}|${address}`, {
-        venueName,
-        address,
-        city: cityKey,
-        state: rawState ?? "",
-        country,
-      });
+      const mapKey = `${country}|${rawState ?? ""}|${cityKey}|${address}`;
+      if (!venueMap.has(mapKey)) {
+        venueMap.set(mapKey, {
+          venueName: address, // placeholder, resolved below
+          address,
+          city: cityKey,
+          state: rawState ?? "",
+          country,
+          lat: ed.lat,
+          lng: ed.lng,
+        });
+      }
+    }
+  }
+
+  // Resolve venue names for entries that need geocoding (no name prefix in address).
+  // Cap at 20 Nominatim lookups per request to stay within the 60s timeout.
+  // Results are edge-cached for 24h so this only runs once per day per venue.
+  let geocodeCount = 0;
+  for (const entry of venueMap.values()) {
+    const needsGeocode = /^\d/.test(entry.address.split(",")[0].trim());
+    if (needsGeocode && geocodeCount < 20) {
+      entry.venueName = await resolveVenueName(entry.address, entry.lat, entry.lng, entry.city);
+      geocodeCount++;
+    } else {
+      entry.venueName = await resolveVenueName(entry.address, undefined, undefined, entry.city);
     }
   }
 
@@ -86,6 +104,6 @@ export async function GET(req: NextRequest) {
   const response: LocationsResponse = { countries, regions, states, cities, venues };
 
   return NextResponse.json(response, {
-    headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600" },
+    headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=172800" },
   });
 }
