@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     if (!ed) continue;
 
     const rawState = normalizeState(ed.state);
-    const country = deriveCountry(ed.country, rawState);
+    const country = deriveCountry(ed.country, rawState, ed.location);
     countrySet.add(country);
 
     if (rawState) {

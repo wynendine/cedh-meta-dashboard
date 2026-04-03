@@ -59,11 +59,45 @@ export function getRegion(state?: string): string | undefined {
 
 /**
  * Derive a country label from TopDeck eventData.
- * TopDeck may return a country field directly; if not, we infer from state.
+ * Priority: explicit country field → infer from state code → infer from address string.
  */
-export function deriveCountry(country?: string, state?: string): string {
+export function deriveCountry(country?: string, state?: string, address?: string): string {
   if (country) return normalizeCountry(country);
   if (state && US_STATE_CODES.has(state.toUpperCase())) return "United States";
+
+  // Last resort: scan the raw address string for a known country name
+  if (address) {
+    const upper = address.toUpperCase();
+    if (upper.includes(", USA") || upper.endsWith(" USA") || / [A-Z]{2} \d{5}/.test(address)) return "United States";
+    if (upper.includes(", AUSTRALIA") || upper.includes(", AU")) return "Australia";
+    if (upper.includes(", CANADA") || / [A-Z]\d[A-Z] \d[A-Z]\d/.test(address)) return "Canada";
+    if (upper.includes(", UK") || upper.includes(", UNITED KINGDOM") || upper.includes(", ENGLAND") || upper.includes(", SCOTLAND") || upper.includes(", WALES")) return "United Kingdom";
+    if (upper.includes(", BRAZIL") || upper.includes(", BRASIL")) return "Brazil";
+    if (upper.includes(", GERMANY") || upper.includes(", DEUTSCHLAND")) return "Germany";
+    if (upper.includes(", FRANCE")) return "France";
+    if (upper.includes(", SPAIN") || upper.includes(", ESPAÑA")) return "Spain";
+    if (upper.includes(", MEXICO") || upper.includes(", MÉXICO")) return "Mexico";
+    if (upper.includes(", SINGAPORE")) return "Singapore";
+    if (upper.includes(", JAPAN")) return "Japan";
+    if (upper.includes(", NETHERLANDS") || upper.includes(", NEDERLAND")) return "Netherlands";
+    if (upper.includes(", ITALY") || upper.includes(", ITALIA")) return "Italy";
+    if (upper.includes(", PORTUGAL")) return "Portugal";
+    if (upper.includes(", ARGENTINA")) return "Argentina";
+    if (upper.includes(", CHILE")) return "Chile";
+    if (upper.includes(", COLOMBIA")) return "Colombia";
+    if (upper.includes(", SWEDEN") || upper.includes(", SVERIGE")) return "Sweden";
+    if (upper.includes(", NORWAY") || upper.includes(", NORGE")) return "Norway";
+    if (upper.includes(", FINLAND") || upper.includes(", SUOMI")) return "Finland";
+    if (upper.includes(", DENMARK") || upper.includes(", DANMARK")) return "Denmark";
+    if (upper.includes(", BELGIUM") || upper.includes(", BELGIQUE")) return "Belgium";
+    if (upper.includes(", POLAND") || upper.includes(", POLSKA")) return "Poland";
+    if (upper.includes(", CZECH REPUBLIC") || upper.includes(", CZECHIA")) return "Czech Republic";
+    if (upper.includes(", NEW ZEALAND")) return "New Zealand";
+    if (upper.includes(", TAIWAN")) return "Taiwan";
+    if (upper.includes(", SOUTH KOREA") || upper.includes(", KOREA")) return "South Korea";
+    if (upper.includes(", HONG KONG")) return "Hong Kong";
+  }
+
   return "International";
 }
 

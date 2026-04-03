@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     if (!td?.eventData) return false;
 
     const rawState = normalizeState(td.eventData.state);
-    const tCountry = deriveCountry(td.eventData.country, rawState);
+    const tCountry = deriveCountry(td.eventData.country, rawState, td.eventData.location);
     const tRegion = getRegion(rawState);
     const tCity = td.eventData.city;
     const tVenue = td.eventData.location;
