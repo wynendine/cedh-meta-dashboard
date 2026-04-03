@@ -12,10 +12,11 @@ const TIME_PERIODS: { value: TimePeriod; label: string }[] = [
 ];
 
 const MIN_SIZES = [
-  { value: 32, label: "32+ players" },
-  { value: 60, label: "60+ players" },
+  { value: 16, label: "16+ players" },
+  { value: 30, label: "30+ players" },
+  { value: 50, label: "50+ players" },
   { value: 100, label: "100+ players" },
-  { value: 150, label: "150+ players" },
+  { value: 250, label: "250+ players" },
 ];
 
 interface FilterBarProps {

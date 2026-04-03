@@ -11,7 +11,7 @@ const DEFAULT_FILTERS: Filters = {
   region: "",
   state: "",
   city: "",
-  minSize: 60,
+  minSize: 30,
 };
 
 function buildQuery(filters: Filters): string {
