@@ -12,7 +12,7 @@ export async function GET() {
   const res = await fetch("https://topdeck.gg/api/v2/tournaments", {
     method: "POST",
     headers: { Authorization: apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ game: "Magic: The Gathering", last: 30 }),
+    body: JSON.stringify({ game: "Magic: The Gathering", format: "EDH", last: 30 }),
   });
 
   const text = await res.text();
