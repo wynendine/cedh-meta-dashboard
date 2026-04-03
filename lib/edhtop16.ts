@@ -19,7 +19,7 @@ async function gql<T>(query: string, variables: Record<string, unknown>): Promis
 // Uses edhtop16's pre-aggregated commanders query — single fast request.
 
 const COMMANDERS_QUERY = `
-  query GetCommanders($timePeriod: TimePeriod!, $minSize: Int, $minEventSize: Int!) {
+  query GetCommanders($timePeriod: TimePeriod!, $minSize: Int) {
     commanders(
       first: 500
       sortBy: POPULARITY
@@ -36,14 +36,6 @@ const COMMANDERS_QUERY = `
             conversionRate
             winRate
             metaShare
-          }
-          wins: entries(
-            first: 500
-            sortBy: NEW
-            filters: { timePeriod: $timePeriod, minEventSize: $minEventSize, maxStanding: 1 }
-          ) {
-            edges { node { __typename } }
-            pageInfo { hasNextPage }
           }
         }
       }

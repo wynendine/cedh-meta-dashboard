@@ -131,7 +131,7 @@ export default function CommanderTable({
                   {cmd.topCuts.toLocaleString()}
                 </td>
                 <td className="px-4 py-3 text-right text-gray-300 font-mono">
-                  {cmd.tournamentWins !== null ? cmd.tournamentWins.toLocaleString() : "—"}
+                  {cmd.tournamentWins.toLocaleString()}
                 </td>
                 <td className="px-4 py-3 text-right text-gray-300 font-mono">
                   {cmd.conversionRate.toFixed(1)}%

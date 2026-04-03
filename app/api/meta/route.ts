@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchGlobalMeta, fetchAllTournamentIds, fetchTournamentEntries } from "@/lib/edhtop16";
+import { fetchAllTournamentIds, fetchTournamentEntries } from "@/lib/edhtop16";
 import { fetchTopDeckTournaments } from "@/lib/topdeck";
 import { getRegion, deriveCountry, normalizeState } from "@/lib/regions";
 import type { CommanderStats, MetaResponse } from "@/lib/types";
@@ -18,47 +18,33 @@ export async function GET(req: NextRequest) {
 
   const hasLocationFilter = country || region || state || city;
 
-  // ── Fast path: no location filter ──────────────────────────────────────────
-  // edhtop16 already aggregates commander stats server-side.
-  // tournamentWins and drawRate are not available from the pre-aggregated API.
-  if (!hasLocationFilter) {
-    const commanders = await fetchGlobalMeta(timePeriod, minSize);
-    const totalEntries = commanders.reduce((s, c) => s + c.entries, 0);
-
-    return NextResponse.json(
-      { commanders, totalEntries, totalTournaments: null } satisfies MetaResponse,
-      { headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600" } }
-    );
-  }
-
-  // ── Slow path: location filter ─────────────────────────────────────────────
-  // 1. Fetch all tournament IDs (lightweight — no entries).
-  // 2. Fetch TopDeck location map in parallel.
-  // 3. Filter tournament IDs by location.
-  // 4. Fetch entries only for matched tournaments.
+  // Fetch tournament shells (always needed). Fetch TopDeck location map in
+  // parallel only when a location filter is active.
   const [shells, topDeckMap] = await Promise.all([
     fetchAllTournamentIds(timePeriod, minSize),
-    fetchTopDeckTournaments(timePeriod),
+    hasLocationFilter ? fetchTopDeckTournaments(timePeriod) : Promise.resolve(new Map()),
   ]);
 
-  // Filter shells by location using TopDeck data
-  const filteredShells = shells.filter((s) => {
-    const td = topDeckMap.get(s.TID);
-    if (!td?.eventData) return false;
+  // Filter shells by location when applicable
+  const filteredShells = hasLocationFilter
+    ? shells.filter((s) => {
+        const td = topDeckMap.get(s.TID);
+        if (!td?.eventData) return false;
 
-    const rawState = normalizeState(td.eventData.state);
-    const tCountry = deriveCountry(td.eventData.country, rawState, td.eventData.location);
-    const tRegion = getRegion(rawState);
-    const tCity = td.eventData.city;
+        const rawState = normalizeState(td.eventData.state);
+        const tCountry = deriveCountry(td.eventData.country, rawState, td.eventData.location);
+        const tRegion = getRegion(rawState);
+        const tCity = td.eventData.city;
 
-    if (country && tCountry !== country) return false;
-    if (region && tRegion !== region) return false;
-    if (state && rawState !== state.toUpperCase()) return false;
-    if (city && tCity?.toLowerCase() !== city.toLowerCase()) return false;
-    return true;
-  });
+        if (country && tCountry !== country) return false;
+        if (region && tRegion !== region) return false;
+        if (state && rawState !== state.toUpperCase()) return false;
+        if (city && tCity?.toLowerCase() !== city.toLowerCase()) return false;
+        return true;
+      })
+    : shells;
 
-  // Fetch full entries only for matched tournaments
+  // Fetch full entries for all matched tournaments
   const tournaments = await fetchTournamentEntries(filteredShells);
 
   // Aggregate commander stats
@@ -103,9 +89,8 @@ export async function GET(req: NextRequest) {
     })
     .sort((a, b) => b.entries - a.entries);
 
-  const response: MetaResponse = { commanders, totalEntries, totalTournaments: tournaments.length };
-
-  return NextResponse.json(response, {
-    headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600" },
-  });
+  return NextResponse.json(
+    { commanders, totalEntries, totalTournaments: tournaments.length } satisfies MetaResponse,
+    { headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600" } }
+  );
 }
