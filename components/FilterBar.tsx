@@ -137,7 +137,10 @@ export default function FilterBar({ filters, locations, locationsLoading, onChan
           {/* State / Province */}
           <Select
             value={filters.state}
-            onChange={(v) => onChange({ state: v, city: "" })}
+            onChange={(v) => {
+              const stateCountry = locations?.states.find((s) => s.value === v)?.country;
+              onChange({ state: v, city: "", ...(stateCountry && !filters.country ? { country: stateCountry } : {}) });
+            }}
             options={filteredStates.map((s) => ({ value: s.value, label: s.label }))}
             placeholder={isUS ? "All States" : "All Provinces"}
             disabled={filteredStates.length === 0}
