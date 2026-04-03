@@ -10,36 +10,33 @@ export async function GET() {
     return NextResponse.json({ error: "TOPDECK_API_KEY not set" });
   }
 
-  const res = await fetch("https://topdeck.gg/api/v2/tournaments", {
-    method: "POST",
-    headers: { Authorization: apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ game: "Magic: The Gathering", format: "EDH", last: 90 }),
-  });
-
-  const text = await res.text();
-  let parsed;
-  try { parsed = JSON.parse(text); } catch { parsed = text; }
-
-  // Test our normalizeState + deriveCountry logic on the real data
-  const withLocation = Array.isArray(parsed)
-    ? parsed.filter((t: Record<string, unknown>) => {
+  // Fetch all format variants to see total TID coverage
+  const formats = ["EDH", "Commander", "cEDH", "cEDH / EDH"];
+  const results = await Promise.all(
+    formats.map(async (format) => {
+      const r = await fetch("https://topdeck.gg/api/v2/tournaments", {
+        method: "POST",
+        headers: { Authorization: apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ game: "Magic: The Gathering", format, last: 90 }),
+      });
+      const data = await r.json();
+      const arr = Array.isArray(data) ? data : [];
+      const withLoc = arr.filter((t: Record<string, unknown>) => {
         const ed = t.eventData as Record<string, unknown> | undefined;
-        return ed && Object.keys(ed).length > 0;
-      })
-    : [];
+        return ed && (ed.city || ed.state);
+      });
+      return { format, total: arr.length, withLocation: withLoc.length, tids: arr.slice(0, 3).map((t: Record<string,unknown>) => t.TID) };
+    })
+  );
 
-  const normalized = withLocation.slice(0, 10).map((t: Record<string, unknown>) => {
-    const ed = t.eventData as Record<string, string> | undefined;
-    const state = normalizeState(ed?.state);
-    const country = deriveCountry(ed?.country, state);
-    return { TID: t.TID, rawState: ed?.state, normalizedState: state, country };
+  // Also fetch a few edhtop16 TIDs to compare
+  const edhtopRes = await fetch("https://edhtop16.com/api/graphql", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: "{ tournaments(first: 5, sortBy: DATE, filters: { timePeriod: THREE_MONTHS }) { edges { node { TID name size } } } }" }),
   });
+  const edhtopData = await edhtopRes.json();
+  const edhtopTIDs = edhtopData?.data?.tournaments?.edges?.map((e: Record<string,unknown>) => (e.node as Record<string,unknown>)?.TID);
 
-  return NextResponse.json({
-    status: res.status,
-    keyPrefix: apiKey.slice(0, 8) + "...",
-    total: Array.isArray(parsed) ? parsed.length : null,
-    withLocationCount: withLocation.length,
-    normalized,
-  });
+  return NextResponse.json({ formats: results, edhtopSampleTIDs: edhtopTIDs });
 }
