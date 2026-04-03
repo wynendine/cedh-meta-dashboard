@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   const countrySet = new Set<string>();
   const stateMap = new Map<string, { region?: string; country: string }>();
-  const cityMap = new Map<string, { state: string; country: string }>();
+  const cityMap = new Map<string, { label: string; state: string; country: string }>();
 
   for (const t of topDeckMap.values()) {
     const ed = t.eventData;
@@ -30,10 +30,11 @@ export async function GET(req: NextRequest) {
 
     const cityKey = ed.city?.trim();
     if (cityKey) {
-      cityMap.set(`${country}|${rawState ?? ""}|${cityKey}`, {
-        state: rawState ?? "",
-        country,
-      });
+      // Normalize key to lowercase to deduplicate case variants (e.g. "Jacksonville" vs "jacksonville")
+      const cityNorm = `${country}|${rawState ?? ""}|${cityKey.toLowerCase()}`;
+      if (!cityMap.has(cityNorm)) {
+        cityMap.set(cityNorm, { label: cityKey, state: rawState ?? "", country });
+      }
     }
   }
 
@@ -52,11 +53,8 @@ export async function GET(req: NextRequest) {
     }))
     .sort((a, b) => a.label.localeCompare(b.label));
 
-  const cities = Array.from(cityMap.entries())
-    .map(([key, { state, country }]) => {
-      const city = key.split("|")[2];
-      return { value: city, label: city, state, country };
-    })
+  const cities = Array.from(cityMap.values())
+    .map(({ label, state, country }) => ({ value: label, label, state, country }))
     .sort((a, b) => a.label.localeCompare(b.label));
 
   const regions = [...new Set(
