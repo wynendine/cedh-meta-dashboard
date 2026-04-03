@@ -85,13 +85,13 @@ export default function CommanderTable({
               <th className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider text-left">
                 Commander
               </th>
+              <Th col="metaShare" label="Meta Share" />
               <Th col="entries" label="Entries" right />
               <Th col="topCuts" label="Top Cuts" right />
               <Th col="tournamentWins" label="1st Place" right />
               <Th col="conversionRate" label="Conv. %" right />
               <Th col="winRate" label="Win %" right />
               <Th col="drawRate" label="Draw %" right />
-              <Th col="metaShare" label="Meta Share" />
             </tr>
           </thead>
           <tbody className="divide-y divide-[#2a2d3a]">
@@ -111,6 +111,19 @@ export default function CommanderTable({
                     {cmd.name}
                   </a>
                 </td>
+                <td className="px-4 py-3 min-w-[160px]">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-[#2a2d3a] rounded-full h-1.5">
+                      <div
+                        className="bg-blue-500 h-1.5 rounded-full"
+                        style={{ width: `${(cmd.entries / maxEntries) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-gray-300 font-mono text-xs w-12 text-right">
+                      {cmd.metaShare.toFixed(2)}%
+                    </span>
+                  </div>
+                </td>
                 <td className="px-4 py-3 text-right text-gray-300 font-mono">
                   {cmd.entries.toLocaleString()}
                 </td>
@@ -128,19 +141,6 @@ export default function CommanderTable({
                 </td>
                 <td className="px-4 py-3 text-right text-gray-300 font-mono">
                   {cmd.drawRate !== null ? `${cmd.drawRate.toFixed(1)}%` : "—"}
-                </td>
-                <td className="px-4 py-3 min-w-[160px]">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-[#2a2d3a] rounded-full h-1.5">
-                      <div
-                        className="bg-blue-500 h-1.5 rounded-full"
-                        style={{ width: `${(cmd.entries / maxEntries) * 100}%` }}
-                      />
-                    </div>
-                    <span className="text-gray-300 font-mono text-xs w-12 text-right">
-                      {cmd.metaShare.toFixed(2)}%
-                    </span>
-                  </div>
                 </td>
               </tr>
             ))}
