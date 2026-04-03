@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchTopDeckTournaments } from "@/lib/topdeck";
 import { getRegion, deriveCountry, normalizeState, STATE_LABELS } from "@/lib/regions";
+import { extractVenueName } from "@/lib/venue";
 import type { LocationsResponse } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
   const countrySet = new Set<string>();
   const stateMap = new Map<string, { region?: string; country: string }>();
   const cityMap = new Map<string, { state: string; country: string }>();
-  const venueMap = new Map<string, { city: string; state: string; country: string }>();
+  const venueMap = new Map<string, { venueName: string; address: string; city: string; state: string; country: string }>();
 
   for (const t of topDeckMap.values()) {
     const ed = t.eventData;
@@ -37,9 +38,12 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const venueKey = ed.location?.trim();
-    if (venueKey && cityKey) {
-      venueMap.set(`${country}|${rawState ?? ""}|${cityKey}|${venueKey}`, {
+    const address = ed.location?.trim();
+    if (address && cityKey) {
+      const venueName = extractVenueName(address, cityKey);
+      venueMap.set(`${country}|${rawState ?? ""}|${cityKey}|${address}`, {
+        venueName,
+        address,
         city: cityKey,
         state: rawState ?? "",
         country,
@@ -71,9 +75,9 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => a.label.localeCompare(b.label));
 
   const venues = Array.from(venueMap.entries())
-    .map(([key, { city, state, country }]) => {
-      const venue = key.split("|")[3];
-      return { value: venue, label: venue, city, state, country };
+    .map(([key, { venueName, address, city, state, country }]) => {
+      const rawAddress = key.split("|")[3];
+      return { value: rawAddress, label: venueName, address, city, state, country };
     })
     .sort((a, b) => a.label.localeCompare(b.label));
 

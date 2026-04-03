@@ -71,7 +71,7 @@ export interface LocationsResponse {
   regions: string[];
   states: { value: string; label: string; region: string; country: string }[];
   cities: { value: string; label: string; state: string; country: string }[];
-  venues: { value: string; label: string; city: string; state: string; country: string }[];
+  venues: { value: string; label: string; address: string; city: string; state: string; country: string }[];
 }
 
 // ─── Filter state ─────────────────────────────────────────────────────────────

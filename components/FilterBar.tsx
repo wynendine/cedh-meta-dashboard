@@ -35,7 +35,7 @@ function Select({
 }: {
   value: string;
   onChange: (v: string) => void;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; title?: string }[];
   disabled?: boolean;
   placeholder: string;
 }) {
@@ -48,7 +48,7 @@ function Select({
     >
       <option value="">{placeholder}</option>
       {options.map((o) => (
-        <option key={o.value} value={o.value}>
+        <option key={o.value} value={o.value} title={o.title}>
           {o.label}
         </option>
       ))}
@@ -159,7 +159,7 @@ export default function FilterBar({ filters, locations, locationsLoading, onChan
           <Select
             value={filters.venue}
             onChange={(v) => onChange({ venue: v })}
-            options={filteredVenues.map((v) => ({ value: v.value, label: v.label }))}
+            options={filteredVenues.map((v) => ({ value: v.value, label: v.label, title: v.address ?? v.value }))}
             placeholder="All Stores"
             disabled={filteredVenues.length === 0}
           />
