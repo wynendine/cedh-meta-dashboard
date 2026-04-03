@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const region = searchParams.get("region") ?? "";
   const state = searchParams.get("state") ?? "";
   const city = searchParams.get("city") ?? "";
-  const minSize = parseInt(searchParams.get("minSize") ?? "60", 10);
+  const minSize = parseInt(searchParams.get("minSize") ?? "0", 10);
 
   const hasLocationFilter = country || region || state || city;
 

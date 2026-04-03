@@ -103,9 +103,9 @@ export default function FilterBar({ filters, locations, locationsLoading, onChan
       {/* Min Size */}
       <Select
         value={String(filters.minSize)}
-        onChange={(v) => onChange({ minSize: parseInt(v, 10) })}
+        onChange={(v) => onChange({ minSize: v ? parseInt(v, 10) : 0 })}
         options={MIN_SIZES.map((m) => ({ value: String(m.value), label: m.label }))}
-        placeholder="Min Size"
+        placeholder="Any size"
       />
 
       {!hasLocationData ? (
