@@ -1,13 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import ColorPips from "./ColorPips";
 import type { CommanderStats } from "@/lib/types";
 
-type SortKey = keyof Pick<
-  CommanderStats,
-  "entries" | "topCuts" | "conversionRate" | "winRate" | "metaShare"
->;
+type SortKey = "entries" | "topCuts" | "tournamentWins" | "conversionRate" | "winRate" | "drawRate" | "metaShare";
 
 interface CommanderTableProps {
   commanders: CommanderStats[];
@@ -33,7 +29,9 @@ export default function CommanderTable({
   }
 
   const sorted = [...commanders].sort((a, b) => {
-    const diff = a[sortKey] - b[sortKey];
+    const av = a[sortKey] ?? -1;
+    const bv = b[sortKey] ?? -1;
+    const diff = av - bv;
     return sortDir === "desc" ? -diff : diff;
   });
 
@@ -87,13 +85,12 @@ export default function CommanderTable({
               <th className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider text-left">
                 Commander
               </th>
-              <th className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider text-left">
-                Colors
-              </th>
               <Th col="entries" label="Entries" right />
               <Th col="topCuts" label="Top Cuts" right />
+              <Th col="tournamentWins" label="1st Place" right />
               <Th col="conversionRate" label="Conv. %" right />
               <Th col="winRate" label="Win %" right />
+              <Th col="drawRate" label="Draw %" right />
               <Th col="metaShare" label="Meta Share" />
             </tr>
           </thead>
@@ -114,9 +111,6 @@ export default function CommanderTable({
                     {cmd.name}
                   </a>
                 </td>
-                <td className="px-4 py-3">
-                  <ColorPips colorId={cmd.colorId} />
-                </td>
                 <td className="px-4 py-3 text-right text-gray-300 font-mono">
                   {cmd.entries.toLocaleString()}
                 </td>
@@ -124,19 +118,23 @@ export default function CommanderTable({
                   {cmd.topCuts.toLocaleString()}
                 </td>
                 <td className="px-4 py-3 text-right text-gray-300 font-mono">
+                  {cmd.tournamentWins !== null ? cmd.tournamentWins.toLocaleString() : "—"}
+                </td>
+                <td className="px-4 py-3 text-right text-gray-300 font-mono">
                   {cmd.conversionRate.toFixed(1)}%
                 </td>
                 <td className="px-4 py-3 text-right text-gray-300 font-mono">
-                  {cmd.winRate > 0 ? `${cmd.winRate.toFixed(1)}%` : "—"}
+                  {cmd.winRate !== null ? `${cmd.winRate.toFixed(1)}%` : "—"}
+                </td>
+                <td className="px-4 py-3 text-right text-gray-300 font-mono">
+                  {cmd.drawRate !== null ? `${cmd.drawRate.toFixed(1)}%` : "—"}
                 </td>
                 <td className="px-4 py-3 min-w-[160px]">
                   <div className="flex items-center gap-2">
                     <div className="flex-1 bg-[#2a2d3a] rounded-full h-1.5">
                       <div
                         className="bg-blue-500 h-1.5 rounded-full"
-                        style={{
-                          width: `${(cmd.entries / maxEntries) * 100}%`,
-                        }}
+                        style={{ width: `${(cmd.entries / maxEntries) * 100}%` }}
                       />
                     </div>
                     <span className="text-gray-300 font-mono text-xs w-12 text-right">

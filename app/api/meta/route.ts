@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
 
   // ── Fast path: no location filter ──────────────────────────────────────────
   // edhtop16 already aggregates commander stats server-side.
+  // tournamentWins and drawRate are not available from the pre-aggregated API.
   if (!hasLocationFilter) {
     const commanders = await fetchGlobalMeta(timePeriod, minSize);
     const totalEntries = commanders.reduce((s, c) => s + c.entries, 0);
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest) {
 
   // Aggregate commander stats
   const statsMap = new Map<string, {
-    colorId: string; entries: number; topCuts: number;
+    colorId: string; entries: number; topCuts: number; tournamentWins: number;
     totalWins: number; totalLosses: number; totalDraws: number;
   }>();
   let totalEntries = 0;
@@ -72,15 +73,17 @@ export async function GET(req: NextRequest) {
       if (!entry.commander?.name) continue;
       const key = entry.commander.name;
       const isTopCut = entry.standing <= (t.topCut ?? 16);
+      const isTournamentWin = entry.standing === 1;
       const games = entry.wins + entry.losses + entry.draws;
       const existing = statsMap.get(key);
 
       if (existing) {
         existing.entries++;
         if (isTopCut) existing.topCuts++;
+        if (isTournamentWin) existing.tournamentWins++;
         if (games > 0) { existing.totalWins += entry.wins; existing.totalLosses += entry.losses; existing.totalDraws += entry.draws; }
       } else {
-        statsMap.set(key, { colorId: entry.commander.colorId, entries: 1, topCuts: isTopCut ? 1 : 0, totalWins: games > 0 ? entry.wins : 0, totalLosses: games > 0 ? entry.losses : 0, totalDraws: games > 0 ? entry.draws : 0 });
+        statsMap.set(key, { colorId: entry.commander.colorId, entries: 1, topCuts: isTopCut ? 1 : 0, tournamentWins: isTournamentWin ? 1 : 0, totalWins: games > 0 ? entry.wins : 0, totalLosses: games > 0 ? entry.losses : 0, totalDraws: games > 0 ? entry.draws : 0 });
       }
       totalEntries++;
     }
@@ -91,8 +94,10 @@ export async function GET(req: NextRequest) {
       const totalGames = s.totalWins + s.totalLosses + s.totalDraws;
       return {
         name, colorId: s.colorId, entries: s.entries, topCuts: s.topCuts,
+        tournamentWins: s.tournamentWins,
         conversionRate: s.entries > 0 ? (s.topCuts / s.entries) * 100 : 0,
-        winRate: totalGames > 0 ? (s.totalWins / totalGames) * 100 : 0,
+        winRate: totalGames > 0 ? (s.totalWins / totalGames) * 100 : null,
+        drawRate: totalGames > 0 ? (s.totalDraws / totalGames) * 100 : null,
         metaShare: totalEntries > 0 ? (s.entries / totalEntries) * 100 : 0,
       };
     })

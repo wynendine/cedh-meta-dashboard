@@ -53,8 +53,10 @@ export interface CommanderStats {
   colorId: string;
   entries: number;
   topCuts: number;
+  tournamentWins: number | null; // entries with standing === 1; null in global (fast) path
   conversionRate: number; // topCuts / entries
-  winRate: number; // avg win rate across entries with games played
+  winRate: number | null; // avg win rate; null when no game data
+  drawRate: number | null; // avg draw rate; null in global (fast) path
   metaShare: number; // entries / totalEntries (0–100)
 }
 

@@ -58,8 +58,10 @@ export async function fetchGlobalMeta(
       colorId: node.colorId,
       entries: node.stats.count,
       topCuts: node.stats.topCuts,
+      tournamentWins: null,
       conversionRate: node.stats.conversionRate * 100,
-      winRate: node.stats.winRate * 100,
+      winRate: node.stats.winRate > 0 ? node.stats.winRate * 100 : null,
+      drawRate: null,
       metaShare: node.stats.metaShare * 100,
     }))
     .filter((c) => c.name);
