@@ -14,10 +14,9 @@ export async function GET(req: NextRequest) {
   const region = searchParams.get("region") ?? "";
   const state = searchParams.get("state") ?? "";
   const city = searchParams.get("city") ?? "";
-  const venue = searchParams.get("venue") ?? "";
   const minSize = parseInt(searchParams.get("minSize") ?? "60", 10);
 
-  const hasLocationFilter = country || region || state || city || venue;
+  const hasLocationFilter = country || region || state || city;
 
   // ── Fast path: no location filter ──────────────────────────────────────────
   // edhtop16 already aggregates commander stats server-side.
@@ -50,13 +49,11 @@ export async function GET(req: NextRequest) {
     const tCountry = deriveCountry(td.eventData.country, rawState, td.eventData.location);
     const tRegion = getRegion(rawState);
     const tCity = td.eventData.city;
-    const tVenue = td.eventData.location;
 
     if (country && tCountry !== country) return false;
     if (region && tRegion !== region) return false;
     if (state && rawState !== state.toUpperCase()) return false;
     if (city && tCity?.toLowerCase() !== city.toLowerCase()) return false;
-    if (venue && tVenue?.toLowerCase() !== venue.toLowerCase()) return false;
     return true;
   });
 

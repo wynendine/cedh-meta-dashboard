@@ -11,7 +11,6 @@ const DEFAULT_FILTERS: Filters = {
   region: "",
   state: "",
   city: "",
-  venue: "",
   minSize: 60,
 };
 
@@ -22,7 +21,6 @@ function buildQuery(filters: Filters): string {
   if (filters.region) params.set("region", filters.region);
   if (filters.state) params.set("state", filters.state);
   if (filters.city) params.set("city", filters.city);
-  if (filters.venue) params.set("venue", filters.venue);
   if (filters.minSize > 0) params.set("minSize", String(filters.minSize));
   return params.toString();
 }
@@ -84,7 +82,7 @@ export default function Dashboard() {
   }
 
   // Location breadcrumb
-  const locationParts = [filters.country, filters.region, filters.state, filters.city, filters.venue].filter(Boolean);
+  const locationParts = [filters.country, filters.region, filters.state, filters.city].filter(Boolean);
   const locationLabel = locationParts.length > 0 ? locationParts.join(" › ") : "Global";
 
   return (

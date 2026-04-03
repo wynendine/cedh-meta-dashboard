@@ -35,7 +35,7 @@ function Select({
 }: {
   value: string;
   onChange: (v: string) => void;
-  options: { value: string; label: string; title?: string }[];
+  options: { value: string; label: string }[];
   disabled?: boolean;
   placeholder: string;
 }) {
@@ -48,9 +48,7 @@ function Select({
     >
       <option value="">{placeholder}</option>
       {options.map((o) => (
-        <option key={o.value} value={o.value} title={o.title}>
-          {o.label}
-        </option>
+        <option key={o.value} value={o.value}>{o.label}</option>
       ))}
     </select>
   );
@@ -60,7 +58,6 @@ export default function FilterBar({ filters, locations, locationsLoading, onChan
   const hasLocationData = locations && locations.countries.length > 0;
   const isUS = filters.country === "United States";
 
-  // Cascade filtering
   const filteredStates = locations?.states.filter((s) => {
     if (filters.country && s.country !== filters.country) return false;
     if (isUS && filters.region && s.region !== filters.region) return false;
@@ -73,14 +70,7 @@ export default function FilterBar({ filters, locations, locationsLoading, onChan
     return true;
   }) ?? [];
 
-  const filteredVenues = locations?.venues.filter((v) => {
-    if (filters.country && v.country !== filters.country) return false;
-    if (filters.state && v.state !== filters.state) return false;
-    if (filters.city && v.city !== filters.city) return false;
-    return true;
-  }) ?? [];
-
-  const hasActiveLocation = filters.country || filters.region || filters.state || filters.city || filters.venue;
+  const hasActiveLocation = filters.country || filters.region || filters.state || filters.city;
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -122,7 +112,7 @@ export default function FilterBar({ filters, locations, locationsLoading, onChan
           {/* Country */}
           <Select
             value={filters.country}
-            onChange={(v) => onChange({ country: v, region: "", state: "", city: "", venue: "" })}
+            onChange={(v) => onChange({ country: v, region: "", state: "", city: "" })}
             options={locations.countries.map((c) => ({ value: c, label: c }))}
             placeholder="All Countries"
           />
@@ -131,7 +121,7 @@ export default function FilterBar({ filters, locations, locationsLoading, onChan
           {isUS && (
             <Select
               value={filters.region}
-              onChange={(v) => onChange({ region: v, state: "", city: "", venue: "" })}
+              onChange={(v) => onChange({ region: v, state: "", city: "" })}
               options={REGIONS.map((r) => ({ value: r, label: r }))}
               placeholder="All Regions"
             />
@@ -140,7 +130,7 @@ export default function FilterBar({ filters, locations, locationsLoading, onChan
           {/* State / Province */}
           <Select
             value={filters.state}
-            onChange={(v) => onChange({ state: v, city: "", venue: "" })}
+            onChange={(v) => onChange({ state: v, city: "" })}
             options={filteredStates.map((s) => ({ value: s.value, label: s.label }))}
             placeholder={isUS ? "All States" : "All Provinces"}
             disabled={filteredStates.length === 0}
@@ -149,24 +139,15 @@ export default function FilterBar({ filters, locations, locationsLoading, onChan
           {/* City */}
           <Select
             value={filters.city}
-            onChange={(v) => onChange({ city: v, venue: "" })}
+            onChange={(v) => onChange({ city: v })}
             options={filteredCities.map((c) => ({ value: c.value, label: c.label }))}
             placeholder="All Cities"
             disabled={filteredCities.length === 0}
           />
 
-          {/* Venue / Store */}
-          <Select
-            value={filters.venue}
-            onChange={(v) => onChange({ venue: v })}
-            options={filteredVenues.map((v) => ({ value: v.value, label: v.label, title: v.address ?? v.value }))}
-            placeholder="All Stores"
-            disabled={filteredVenues.length === 0}
-          />
-
           {hasActiveLocation && (
             <button
-              onClick={() => onChange({ country: "", region: "", state: "", city: "", venue: "" })}
+              onClick={() => onChange({ country: "", region: "", state: "", city: "" })}
               className="text-xs text-gray-500 hover:text-white underline"
             >
               Clear location
