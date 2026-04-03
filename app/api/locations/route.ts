@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchAllTournamentIds } from "@/lib/edhtop16";
 import { fetchTopDeckTournaments } from "@/lib/topdeck";
 import { getRegion, deriveCountry, normalizeState, STATE_LABELS } from "@/lib/regions";
 import type { LocationsResponse } from "@/lib/types";
@@ -11,14 +12,21 @@ export async function GET(req: NextRequest) {
   const timePeriod = searchParams.get("timePeriod") ?? "THREE_MONTHS";
   const minSize = parseInt(searchParams.get("minSize") ?? "0", 10);
 
-  const topDeckMap = await fetchTopDeckTournaments(timePeriod);
+  // Fetch edhtop16 TIDs (with size filter) and TopDeck location map in parallel
+  const [shells, topDeckMap] = await Promise.all([
+    fetchAllTournamentIds(timePeriod, minSize),
+    fetchTopDeckTournaments(timePeriod),
+  ]);
+
+  // Only include locations for tournaments that meet the size threshold
+  const validTIDs = new Set(shells.map((s) => s.TID));
 
   const countrySet = new Set<string>();
   const stateMap = new Map<string, { region?: string; country: string }>();
   const cityMap = new Map<string, { label: string; state: string; country: string }>();
 
   for (const t of topDeckMap.values()) {
-    if (minSize > 0 && (t.players ?? 0) < minSize) continue;
+    if (!validTIDs.has(t.TID)) continue;
     const ed = t.eventData;
     if (!ed) continue;
 
