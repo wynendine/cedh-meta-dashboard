@@ -64,11 +64,17 @@ export default function FilterBar({ filters, locations, locationsLoading, onChan
     return true;
   }) ?? [];
 
-  const filteredCities = locations?.cities.filter((c) => {
-    if (filters.country && c.country !== filters.country) return false;
-    if (filters.state && c.state !== filters.state) return false;
-    return true;
-  }) ?? [];
+  const filteredCities = (() => {
+    const seen = new Set<string>();
+    return (locations?.cities ?? []).filter((c) => {
+      if (filters.country && c.country !== filters.country) return false;
+      if (filters.state && c.state !== filters.state) return false;
+      const key = c.label.trim().toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  })();
 
   const hasActiveLocation = filters.country || filters.region || filters.state || filters.city;
 
