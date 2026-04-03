@@ -19,18 +19,26 @@ export async function GET() {
   let parsed;
   try { parsed = JSON.parse(text); } catch { parsed = text; }
 
-  // Find first tournament that has non-empty eventData
-  const withLocation = Array.isArray(parsed)
-    ? parsed.find((t: Record<string, unknown>) => {
-        const ed = t.eventData as Record<string, unknown> | undefined;
-        return ed && Object.keys(ed).length > 0;
-      })
-    : null;
+  // Collect all unique eventData shapes that have non-empty data
+  const samples = Array.isArray(parsed)
+    ? parsed
+        .filter((t: Record<string, unknown>) => {
+          const ed = t.eventData as Record<string, unknown> | undefined;
+          return ed && Object.keys(ed).length > 0;
+        })
+        .slice(0, 10)
+        .map((t: Record<string, unknown>) => ({
+          TID: t.TID,
+          tournamentName: t.tournamentName,
+          eventData: t.eventData,
+        }))
+    : [];
 
   return NextResponse.json({
     status: res.status,
     keyPrefix: apiKey.slice(0, 8) + "...",
     count: Array.isArray(parsed) ? parsed.length : null,
-    firstWithLocation: withLocation ?? "none found",
+    withLocationCount: samples.length,
+    samples,
   });
 }
